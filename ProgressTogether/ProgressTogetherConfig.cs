@@ -12,7 +12,7 @@ public class ProgressTogetherConfig
     {
         enabled = true;
     }
-    
+
     public void Add(ProgressTogetherEntry entry)
     {
         entries.Add(entry);
@@ -37,6 +37,7 @@ public class ProgressTogetherEntry
     public ProgressTogetherEntry()
     {
     }
+
     public ProgressTogetherEntry(string name, string uuid)
     {
         this.name = name;
@@ -64,14 +65,23 @@ public class ProgressTogetherEntry
 
     public bool Matches(TSPlayer player)
     {
-        return this.name == player.Name && this.uuid == player.UUID;
+        var matches = this.name == player.Name;
+        if (this.uuid != null)
+        {
+            matches = matches && this.uuid == player.UUID;
+        }
+        return matches;
     }
 
     public bool Matches(ProgressTogetherEntry entry)
     {
-        return this.name == entry.name && this.uuid == entry.uuid;
-    }
-    
+        var matches = this.name == entry.name;
+        if (this.uuid != null)
+        {
+            matches = matches && this.uuid == entry.name;
+        }
+        return matches;    }
+
     public override string ToString()
     {
         return $"ProgressTogetherEntry(name={name}, uuid={uuid})";
