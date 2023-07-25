@@ -129,6 +129,7 @@ public class ProgressTogether : TerrariaPlugin
                 var playersNotOnline = PlayersNotOnline();
                 if (playersNotOnline.Count == 0 || !_config.enabled)
                 {
+                    args.Player.SendSuccessMessage($"All required players are online.");
                     args.Player.SendSuccessMessage($"Bosses that haven't spawned before will spawn freely.");
                     return;
                 }
@@ -149,6 +150,11 @@ public class ProgressTogether : TerrariaPlugin
                 args.Player.SendSuccessMessage("Bosses will spawn without restriction.");
                 return;
             case "list":
+                if (_config.entries.Count == 0)
+                {
+                    args.Player.SendSuccessMessage($"No players are required for progress.");
+                    return;
+                }
                 args.Player.SendSuccessMessage($"The following players are required for progression: {_config.StringifyEntries()}");
                 return;
             case "reload":
@@ -175,6 +181,7 @@ public class ProgressTogether : TerrariaPlugin
                     return;
                 }
 
+                args.Player.SendErrorMessage("Player was added to the progression requirements.");
                 _config.Add(entry);
                 Write();
                 return;
