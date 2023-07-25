@@ -9,6 +9,7 @@ The plugin provides the following commands:
 - `/progress add <player>`: Adds a player to the list of players who are required for boss spawns..
 - `/progress remove <player>`: Removes a player from the list of players who are required for boss spawns.
 - `/progress status`: Displays whether if plugin is enabled, whether bosses will spawn, and who is missing if they won't spawn.
+- `/progress list`: Lists all players who are required for bosses to spawn.
 - `/progress enable`: Enables the functionality of Progress Together.
 - `/progress disable`: Disables the functionality of Progress Together.
 - `/progress reload`: Reloads the configuration file for Progress Together.
