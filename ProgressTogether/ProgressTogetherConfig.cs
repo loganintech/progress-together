@@ -78,7 +78,7 @@ public class ProgressTogetherEntry
         var matches = this.name == entry.name;
         if (this.uuid != null)
         {
-            matches = matches && this.uuid == entry.name;
+            matches = matches && this.uuid == entry.uuid;
         }
         return matches;    }
 

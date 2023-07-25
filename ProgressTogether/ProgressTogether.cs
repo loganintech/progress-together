@@ -17,7 +17,7 @@ public class ProgressTogether : TerrariaPlugin
         "Blocks bosses that haven't been spawned yet until enough of your friends are online!";
 
     public override string Name => "Progress Together";
-    public override Version Version => new Version(0, 0, 1, 0);
+    public override Version Version => new Version(0, 0, 1, 1);
 
     private ProgressTogetherConfig _config;
 
