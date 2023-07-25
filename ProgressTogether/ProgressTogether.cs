@@ -181,7 +181,7 @@ public class ProgressTogether : TerrariaPlugin
                     return;
                 }
 
-                args.Player.SendErrorMessage("Player was added to the progression requirements.");
+                args.Player.SendSuccessMessage("Player was added to the progression requirements.");
                 _config.Add(entry);
                 Write();
                 return;
@@ -192,7 +192,7 @@ public class ProgressTogether : TerrariaPlugin
                     args.Player.SendErrorMessage("Player not found.");
                     return;
                 }
-                args.Player.SendErrorMessage("Player was removed from progression requirements.");
+                args.Player.SendSuccessMessage("Player was removed from progression requirements.");
                 Write();
                 return;
         }
