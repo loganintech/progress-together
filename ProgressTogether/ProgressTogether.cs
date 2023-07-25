@@ -98,9 +98,9 @@ public class ProgressTogether : TerrariaPlugin
 
     private void CommandHandler(CommandArgs args)
     {
-        if (args.Parameters.Count == 0 || args.Parameters.Count > 2)
+        if (args.Parameters.Count is 0 or > 2)
         {
-            args.Player.SendErrorMessage("Usage: /progress <add|remove|status|enable|disable|reload> [player]");
+            args.Player.SendErrorMessage("Usage: /progress <add|remove|status|list|enable|disable|reload> [player]");
             return;
         }
 
@@ -204,6 +204,7 @@ public class ProgressTogether : TerrariaPlugin
 
     public ProgressTogether(Main game) : base(game)
     {
+        _config = new ProgressTogetherConfig();
     }
 
     private static bool BossAlreadyKilledByNetId(int id)
