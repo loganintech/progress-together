@@ -307,7 +307,6 @@ public class ProgressTogether : TerrariaPlugin
             var foundMatch = false;
             foreach (var onlinePlayer in onlinePlayersSet)
             {
-                Log($"Comparing {entry} to {onlinePlayer}");
                 if (entry.Matches(onlinePlayer))
                 {
                     foundMatch = true;
