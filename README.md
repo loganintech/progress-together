@@ -22,9 +22,9 @@ The config of Progress Together is stored in a JSON file named `progress-togethe
 
 ```json5
 {
-  "enabled": true, // Enable the blocking functionality
-  "logBossSpawns": true, // Log boss spawns and blocks to a file
-  "addOnLogin": true, // When a new player joins the server, automatically add their player name to the required list
+  "enabled": true,
+  "logBossSpawns": true, 
+  "addOnLogin": false,
   "entries": [
     {
       "name": "CharacterName",
@@ -37,6 +37,8 @@ The config of Progress Together is stored in a JSON file named `progress-togethe
 Explanation of the configuration fields:
 
 - `"enabled"`: A boolean value that determines whether the Progress Together functionality is active (`true`) or inactive (`false`). If set to `true`, the plugin will check the status of players in the list before allowing bosses to spawn.
+- `"logBossSpawns"`: When a boss spawns for the first time, or a boss spawn is blocked, log that to a file.
+- `"addOnLogin"`: When a new player joins the server, automatically add them (by name only) to the progress requirement list.
 - `"entries"`: An array of player entries, each containing the following fields:
     - `"name"`: The name of the player.
     - `"uuid"`: The Universally Unique Identifier (UUID) of the player.
