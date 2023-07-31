@@ -3,15 +3,16 @@ using TShockAPI;
 
 namespace ProgressTogether;
 
-public class ProgressTogetherConfig
+public class Config
 {
     [JsonIgnore]
-    private static string TShockConfigPath
+    public static string ConfigPath
     {
         get { return Path.Combine(TShock.SavePath, "progress-together.json"); }
     }
 
     [JsonProperty("addOnLogin")] private bool _addOnLogin;
+    [JsonProperty("logBossSpawns")] private bool _logBossSpawns;
     [JsonProperty("enabled")] private bool _enabled;
     [JsonProperty("entries")] private List<ProgressTogetherEntry> _entries = new();
 
@@ -22,7 +23,7 @@ public class ProgressTogetherConfig
         Formatting = Formatting.Indented,
     };
 
-    public ProgressTogetherConfig()
+    public Config()
     {
         _enabled = true;
     }
@@ -31,20 +32,19 @@ public class ProgressTogetherConfig
     {
         return _enabled;
     }
-    public void Enable(bool enable)
+    public void Enabled(bool enable)
     {
         _enabled = enable;
-        Write();
-    }
-    public void AddOnLogin(bool addOnLogin)
-    {
-        _addOnLogin = addOnLogin;
         Write();
     }
 
     public bool AddOnLogin()
     {
         return _addOnLogin;
+    }
+    public bool LogBossSpawns()
+    {
+        return _logBossSpawns;
     }
 
     public List<ProgressTogetherEntry> Entries()
@@ -86,18 +86,18 @@ public class ProgressTogetherConfig
         return String.Join("\n", this._entries.Select(entry => entry.ToString()));
     }
 
-    public static ProgressTogetherConfig? Load()
+    public static Config? Load()
     {
-        if (!File.Exists(TShockConfigPath))
+        if (!File.Exists(ConfigPath))
         {
-            return new ProgressTogetherConfig();
+            return new Config();
         }
 
-        string fileContent = File.ReadAllText(TShockConfigPath);
-        ProgressTogetherConfig? configData;
+        string fileContent = File.ReadAllText(ConfigPath);
+        Config? configData;
         try
         {
-            configData = JsonConvert.DeserializeObject<ProgressTogetherConfig>(fileContent, serializeOpts);
+            configData = JsonConvert.DeserializeObject<Config>(fileContent, serializeOpts);
         }
         catch (Exception)
         {
@@ -110,7 +110,7 @@ public class ProgressTogetherConfig
     public void Write()
     {
         var jsonConfig = JsonConvert.SerializeObject(this, serializeOpts);
-        File.WriteAllText(TShockConfigPath, jsonConfig);
+        File.WriteAllText(ConfigPath, jsonConfig);
     }
 }
 
