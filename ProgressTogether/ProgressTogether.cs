@@ -299,7 +299,10 @@ public class ProgressTogether : TerrariaPlugin
         // All the players needed are online, so we return here
         if (playersNotOnline.Count == 0)
         {
-            Log.LogToFile($"{npc.FullName} spawned for the first time!");
+            if (_config.LogBossSpawns())
+            {
+                Log.LogToFile($"{npc.FullName} spawned for the first time!");
+            }
             return;
         }
 
@@ -316,7 +319,10 @@ public class ProgressTogether : TerrariaPlugin
             $"Spawning {npc.FullName} is blocked because {playersNotOnlineString} {adjective} not online", Color.Red);
         args.Handled = true;
         npc.active = false;
-        
-        Log.LogToFile($"Spawning {npc.FullName} was blocked.");
+
+        if (_config.LogBossSpawns())
+        {
+            Log.LogToFile($"Spawning {npc.FullName} was blocked.");
+        }
     }
 }
