@@ -20,7 +20,7 @@ Please note that the plugin commands require administrator or appropriate permis
 
 The config of Progress Together is stored in a JSON file named `progress-together.json`. Ex:
 
-```json
+```json5
 {
   "enabled": true, // Enable the blocking functionality
   "logBossSpawns": true, // Log boss spawns and blocks to a file
