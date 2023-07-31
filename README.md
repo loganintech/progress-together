@@ -55,4 +55,3 @@ To install the Progress Together plugin, follow these steps:
 2. Download the latest release of the Progress Together plugin.
 3. Place the downloaded plugin dll into the `ServerPlugins` folder of your TShock server.
 4. Restart or reload the server to load the plugin.
-]()
