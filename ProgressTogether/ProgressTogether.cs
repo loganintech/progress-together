@@ -1,5 +1,4 @@
 ﻿using Microsoft.Xna.Framework;
-using Newtonsoft.Json;
 using TerrariaApi.Server;
 using Terraria;
 using Terraria.ID;
@@ -15,25 +14,20 @@ public class ProgressTogether : TerrariaPlugin
     public override string Description =>
         "Blocks bosses that haven't been spawned yet until enough of your friends are online!";
 
-    public override string Name => "Progress Together";
+    public override string Name => Log.Name;
     public override Version Version => new Version(0, 0, 1, 2);
 
-    private ProgressTogetherConfig _config;
-
-    private void Log(string message)
-    {
-        Console.WriteLine($"[{Name}]: {message}");
-    }
-
+    private Config _config;
+    
     public override void Initialize()
     {
         ServerApi.Hooks.NpcSpawn.Register(this, OnNpcSpawn);
         ServerApi.Hooks.ServerJoin.Register(this, OnServerJoin);
         Commands.ChatCommands.Add(new Command(Permissions.spawnboss, CommandHandler, "progress"));
-        var config = ProgressTogetherConfig.Load();
+        var config = Config.Load();
         if (config == null)
         {
-            config = new ProgressTogetherConfig();
+            config = new Config();
             config.Write();
         }
         _config = config;
@@ -101,11 +95,11 @@ public class ProgressTogether : TerrariaPlugin
                     $"The following players are required for progression: {String.Join(", ", playersNotOnline)}");
                 return;
             case "enable":
-                _config.Enable(true);
+                _config.Enabled(true);
                 args.Player.SendSuccessMessage("Progress Together is now enabled.");
                 return;
             case "disable":
-                _config.Enable(false);
+                _config.Enabled(false);
                 args.Player.SendSuccessMessage("Progress Together is now disabled.");
                 args.Player.SendSuccessMessage("Bosses will spawn without restriction.");
                 return;
@@ -118,7 +112,7 @@ public class ProgressTogether : TerrariaPlugin
                 args.Player.SendSuccessMessage($"The following players are required for progression: {_config.StringifyEntries()}");
                 return;
             case "reload":
-                var config = ProgressTogetherConfig.Load();
+                var config = Config.Load();
                 if (config == null)
                 {
                     args.Player.SendErrorMessage("Failed to reload config.");
@@ -173,7 +167,7 @@ public class ProgressTogether : TerrariaPlugin
 
     public ProgressTogether(Main game) : base(game)
     {
-        _config = new ProgressTogetherConfig();
+        _config = new Config();
     }
 
     private static bool BossAlreadyKilledByNetId(int id)
@@ -296,22 +290,33 @@ public class ProgressTogether : TerrariaPlugin
     private void OnNpcSpawn(NpcSpawnEventArgs args)
     {
         var npc = Main.npc[args.NpcId];
-        if (!npc.boss || BossAlreadyKilledByNetId(npc.netID) || !_config.Enabled())
+        if (!npc.boss || BossAlreadyKilledByNetId(npc.netID))
         {
             return;
         }
-
+        
         var playersNotOnline = PlayersNotOnline();
+        // All the players needed are online, so we return here
         if (playersNotOnline.Count == 0)
         {
+            Log.LogToFile($"{npc.FullName} spawned for the first time!");
             return;
         }
 
+        // We don't want to actually block any spawning, so just return here
+        if (!_config.Enabled())
+        {
+            return;
+        }
+
+        // We want to block spawning, so we set the npc to inactive and broadcast a message
         var playersNotOnlineString = String.Join(", ", playersNotOnline);
         var adjective = playersNotOnline.Count > 1 ? "are" : "is";
         TShock.Utils.Broadcast(
             $"Spawning {npc.FullName} is blocked because {playersNotOnlineString} {adjective} not online", Color.Red);
         args.Handled = true;
         npc.active = false;
+        
+        Log.LogToFile($"Spawning {npc.FullName} was blocked.");
     }
 }
