@@ -145,12 +145,14 @@ public class ProgressTogether : TerrariaPlugin
                 args.Player.SendSuccessMessage($"The following players are required for progression: {_config.StringifyEntries()}");
                 return;
             case "reload":
-                if (!Load())
+                var config = ProgressTogetherConfig.Load();
+                if (config == null)
                 {
                     args.Player.SendErrorMessage("Failed to reload config.");
                     return;
                 }
 
+                _config = config;
                 args.Player.SendSuccessMessage("Config reloaded.");
                 return;
         }
