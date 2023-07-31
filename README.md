@@ -22,7 +22,9 @@ The config of Progress Together is stored in a JSON file named `progress-togethe
 
 ```json
 {
-  "enabled": true,
+  "enabled": true, // Enable the blocking functionality
+  "logBossSpawns": true, // Log boss spawns and blocks to a file
+  "addOnLogin": true, // When a new player joins the server, automatically add their player name to the required list
   "entries": [
     {
       "name": "CharacterName",
