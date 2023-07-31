@@ -11,6 +11,7 @@ public class ProgressTogetherConfig
         get { return Path.Combine(TShock.SavePath, "progress-together.json"); }
     }
 
+    [JsonProperty("addOnLogin")] private bool _addOnLogin;
     [JsonProperty("enabled")] private bool _enabled;
     [JsonProperty("entries")] private List<ProgressTogetherEntry> _entries = new();
 
@@ -30,20 +31,38 @@ public class ProgressTogetherConfig
     {
         return _enabled;
     }
-    public void Enable()
+    public void Enable(bool enable)
     {
-        _enabled = true;
+        _enabled = enable;
         Write();
     }
-    public void Disable()
+    public void AddOnLogin(bool addOnLogin)
     {
-        _enabled = false;
+        _addOnLogin = addOnLogin;
         Write();
+    }
+
+    public bool AddOnLogin()
+    {
+        return _addOnLogin;
     }
 
     public List<ProgressTogetherEntry> Entries()
     {
         return _entries;
+    }
+
+    public bool Matches(TSPlayer player)
+    {
+        foreach (var entry in _entries)
+        {
+            if (entry.Matches(player))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
     
     public void Add(ProgressTogetherEntry entry)

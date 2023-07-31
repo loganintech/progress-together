@@ -25,23 +25,10 @@ public class ProgressTogether : TerrariaPlugin
         Console.WriteLine($"[{Name}]: {message}");
     }
 
-    private static JsonSerializerSettings serializeOpts = new JsonSerializerSettings
-    {
-        NullValueHandling = NullValueHandling.Ignore,
-        DefaultValueHandling = DefaultValueHandling.Include,
-        Formatting = Formatting.Indented,
-    };
-
-
-    private static string TShockConfigPath
-    {
-        get { return Path.Combine(TShock.SavePath, "progress-together.json"); }
-    }
-
-
     public override void Initialize()
     {
         ServerApi.Hooks.NpcSpawn.Register(this, OnNpcSpawn);
+        ServerApi.Hooks.ServerJoin.Register(this, OnServerJoin);
         Commands.ChatCommands.Add(new Command(Permissions.spawnboss, CommandHandler, "progress"));
         var config = ProgressTogetherConfig.Load();
         if (config == null)
@@ -52,60 +39,46 @@ public class ProgressTogether : TerrariaPlugin
         _config = config;
     }
 
-    public bool Load()
+    private void OnServerJoin(JoinEventArgs args)
     {
-        if (!File.Exists(TShockConfigPath))
+        if (!_config.AddOnLogin())
         {
-            Log($"Load: File does not exist {TShockConfigPath}");
-            _config = new ProgressTogetherConfig();
-            return false;
+            return;
+        }
+        
+        var player = TShock.Players[args.Who];
+        if (player == null)
+        {
+            return;
         }
 
-        string fileContent = File.ReadAllText(TShockConfigPath);
-        ProgressTogetherConfig? configData;
-        try
+        // If that player is already in the matches list, don't add them again.
+        if (_config.Matches(player))
         {
-            configData = JsonConvert.DeserializeObject<ProgressTogetherConfig>(fileContent, serializeOpts);
+            return;
         }
-        catch (Exception e)
-        {
-            Log($"Load: Exception happened reading config {e.Message}");
-            return true;
-        }
-
-        if (configData == null)
-        {
-            Log($"Load: Config was loaded but not set properly.");
-            return true;
-        }
-
-        Log("Load: Config loaded successfully.");
-        _config = configData;
-        return true;
+        
+        // Add only based on name, otherwise the same player connecting on two different devices would prevent progression
+        _config.Add(new ProgressTogetherEntry(player.Name, ""));
     }
-    
 
     private void CommandHandler(CommandArgs args)
     {
-        if (args.Parameters.Count is 0 or > 2)
+        switch (args.Parameters.Count)
         {
-            args.Player.SendErrorMessage("Usage: /progress <add|remove|status|list|enable|disable|reload> [player]");
-            return;
+            case 0 or > 2:
+                args.Player.SendErrorMessage("Usage: /progress <add|remove|status|list|enable|disable|reload> [player]");
+                return;
+            case 1:
+                HandleListEnableDisable(args);
+                return;
+            case 2:
+                HandleAddRemove(args);
+                return;
+            default:
+                args.Player.SendErrorMessage("Unknown command. You broke Tshock's param parsing.");
+                break;
         }
-
-        if (args.Parameters.Count == 1)
-        {
-            HandleListEnableDisable(args);
-            return;
-        }
-
-        if (args.Parameters.Count == 2)
-        {
-            HandleAddRemove(args);
-            return;
-        }
-
-        args.Player.SendErrorMessage("Unknown command. You broke Tshock's param parsing.");
     }
 
     private void HandleListEnableDisable(CommandArgs args)
@@ -128,11 +101,11 @@ public class ProgressTogether : TerrariaPlugin
                     $"The following players are required for progression: {String.Join(", ", playersNotOnline)}");
                 return;
             case "enable":
-                _config.Enable();
+                _config.Enable(true);
                 args.Player.SendSuccessMessage("Progress Together is now enabled.");
                 return;
             case "disable":
-                _config.Disable();
+                _config.Enable(false);
                 args.Player.SendSuccessMessage("Progress Together is now disabled.");
                 args.Player.SendSuccessMessage("Bosses will spawn without restriction.");
                 return;
