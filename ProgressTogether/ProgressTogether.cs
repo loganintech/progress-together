@@ -1,5 +1,4 @@
-﻿using Microsoft.VisualBasic;
-using Microsoft.Xna.Framework;
+﻿using Microsoft.Xna.Framework;
 using Newtonsoft.Json;
 using TerrariaApi.Server;
 using Terraria;
@@ -44,10 +43,13 @@ public class ProgressTogether : TerrariaPlugin
     {
         ServerApi.Hooks.NpcSpawn.Register(this, OnNpcSpawn);
         Commands.ChatCommands.Add(new Command(Permissions.spawnboss, CommandHandler, "progress"));
-        if (!Load())
+        var config = ProgressTogetherConfig.Load();
+        if (config == null)
         {
-            Write();
+            config = new ProgressTogetherConfig();
+            config.Write();
         }
+        _config = config;
     }
 
     public bool Load()
@@ -81,20 +83,7 @@ public class ProgressTogether : TerrariaPlugin
         _config = configData;
         return true;
     }
-
-
-    public void Write()
-    {
-        try
-        {
-            var jsonConfig = JsonConvert.SerializeObject(_config, serializeOpts);
-            File.WriteAllText(TShockConfigPath, jsonConfig);
-        }
-        catch (Exception e)
-        {
-            Log($"Write: Exception happened writing config {e.Message}");
-        }
-    }
+    
 
     private void CommandHandler(CommandArgs args)
     {
@@ -125,9 +114,9 @@ public class ProgressTogether : TerrariaPlugin
         {
             case "status":
                 args.Player.SendInfoMessage(
-                    $"Progress Together is currently {(_config.enabled ? "enabled" : "disabled")}");
+                    $"Progress Together is currently {(_config.Enabled() ? "enabled" : "disabled")}");
                 var playersNotOnline = PlayersNotOnline();
-                if (playersNotOnline.Count == 0 || !_config.enabled)
+                if (playersNotOnline.Count == 0 || !_config.Enabled())
                 {
                     args.Player.SendSuccessMessage($"All required players are online.");
                     args.Player.SendSuccessMessage($"Bosses that haven't spawned before will spawn freely.");
@@ -139,18 +128,16 @@ public class ProgressTogether : TerrariaPlugin
                     $"The following players are required for progression: {String.Join(", ", playersNotOnline)}");
                 return;
             case "enable":
-                _config.enabled = true;
-                Write();
+                _config.Enable();
                 args.Player.SendSuccessMessage("Progress Together is now enabled.");
                 return;
             case "disable":
-                _config.enabled = false;
-                Write();
+                _config.Disable();
                 args.Player.SendSuccessMessage("Progress Together is now disabled.");
                 args.Player.SendSuccessMessage("Bosses will spawn without restriction.");
                 return;
             case "list":
-                if (_config.entries.Count == 0)
+                if (_config.Entries().Count == 0)
                 {
                     args.Player.SendSuccessMessage($"No players are required for progress.");
                     return;
@@ -183,7 +170,7 @@ public class ProgressTogether : TerrariaPlugin
 
                 args.Player.SendSuccessMessage("Player was added to the progression requirements.");
                 _config.Add(entry);
-                Write();
+       
                 return;
             case "remove":
                 var removed = _config.RemoveAllMatches(args.Parameters[1]);
@@ -193,7 +180,7 @@ public class ProgressTogether : TerrariaPlugin
                     return;
                 }
                 args.Player.SendSuccessMessage("Player was removed from progression requirements.");
-                Write();
+       
                 return;
         }
     }
@@ -310,7 +297,7 @@ public class ProgressTogether : TerrariaPlugin
         }
 
         var playersNotOnlineNames = new List<string>();
-        foreach (var entry in _config.entries)
+        foreach (var entry in _config.Entries())
         {
             var foundMatch = false;
             foreach (var onlinePlayer in onlinePlayersSet)
@@ -334,7 +321,7 @@ public class ProgressTogether : TerrariaPlugin
     private void OnNpcSpawn(NpcSpawnEventArgs args)
     {
         var npc = Main.npc[args.NpcId];
-        if (!npc.boss || BossAlreadyKilledByNetId(npc.netID) || !_config.enabled)
+        if (!npc.boss || BossAlreadyKilledByNetId(npc.netID) || !_config.Enabled())
         {
             return;
         }
