@@ -13,7 +13,7 @@ public class Config
 
     [JsonProperty("addOnLogin")] private bool _addOnLogin;
     [JsonProperty("logBossSpawns")] private bool _logBossSpawns;
-    [JsonProperty("enabled")] private bool _enabled;
+    [JsonProperty("enabled")] private bool _enabled = true;
     [JsonProperty("entries")] private List<ProgressTogetherEntry> _entries = new();
 
     [JsonIgnore] private static readonly JsonSerializerSettings serializeOpts = new JsonSerializerSettings
@@ -22,11 +22,6 @@ public class Config
         DefaultValueHandling = DefaultValueHandling.Include,
         Formatting = Formatting.Indented,
     };
-
-    public Config()
-    {
-        _enabled = true;
-    }
 
     public bool Enabled()
     {
