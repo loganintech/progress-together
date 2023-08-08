@@ -309,7 +309,10 @@ public class ProgressTogether : TerrariaPlugin
         // If we're not going to block this spawn, log that the boss is spawning for the first time, then don't block
         if (!shouldBlockSpawns)
         {
-            Log.LogToFile($"{npc.FullName} spawned for the first time!");
+            if (_config.LogBossSpawns())
+            {
+                Log.LogToFile($"{npc.FullName} spawned for the first time!");
+            }
             return;
         }
 
