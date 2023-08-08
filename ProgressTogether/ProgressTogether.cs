@@ -1,8 +1,7 @@
-﻿using Microsoft.VisualBasic;
-using Microsoft.Xna.Framework;
-using TerrariaApi.Server;
+﻿using Microsoft.Xna.Framework;
 using Terraria;
 using Terraria.ID;
+using TerrariaApi.Server;
 using TShockAPI;
 
 namespace ProgressTogether;
@@ -10,6 +9,13 @@ namespace ProgressTogether;
 [ApiVersion(2, 1)]
 public class ProgressTogether : TerrariaPlugin
 {
+    private Config _config;
+
+    public ProgressTogether(Main game) : base(game)
+    {
+        _config = new Config();
+    }
+
     public override string Author => "loganintech";
 
     public override string Description =>
@@ -17,8 +23,6 @@ public class ProgressTogether : TerrariaPlugin
 
     public override string Name => Log.Name;
     public override Version Version => new Version(0, 0, 2, 0);
-
-    private Config _config;
 
     public override void Initialize()
     {
@@ -70,6 +74,7 @@ public class ProgressTogether : TerrariaPlugin
         {
             return;
         }
+
         var player = TShock.Players[args.Who];
         var entry = new ProgressTogetherEntry(player.Name, "");
         var missed = _config.GetMissedForEntry(entry);
@@ -87,7 +92,7 @@ public class ProgressTogether : TerrariaPlugin
         player.SendInfoMessage($"While you were away, {CombineBossNames(missed.ConvertAll(x => x.Name))}");
         _config.ClearMissedForEntry(entry);
     }
-    
+
     static string CombineBossNames(List<string> strings)
     {
         var count = strings.Count;
@@ -106,7 +111,7 @@ public class ProgressTogether : TerrariaPlugin
             }
         }
     }
-    
+
     private void CommandHandler(CommandArgs args)
     {
         switch (args.Parameters.Count)
@@ -218,11 +223,6 @@ public class ProgressTogether : TerrariaPlugin
         }
 
         base.Dispose(disposing);
-    }
-
-    public ProgressTogether(Main game) : base(game)
-    {
-        _config = new Config();
     }
 
     private static bool BossAlreadyKilledByNetId(int id)
@@ -377,6 +377,7 @@ public class ProgressTogether : TerrariaPlugin
                     _config.AddMissed(entry, new BossEntry(npc.FullName, npc.netID));
                 }
             }
+
             return;
         }
 
