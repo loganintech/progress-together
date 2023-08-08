@@ -290,25 +290,26 @@ public class ProgressTogether : TerrariaPlugin
     private void OnNpcSpawn(NpcSpawnEventArgs args)
     {
         var npc = Main.npc[args.NpcId];
-        if (!npc.boss || BossAlreadyKilledByNetId(npc.netID))
+        // If it's not a boss don't block
+        if (!npc.boss)
+        {
+            return;
+        }
+
+        // If it's not the first time they've spawned, don't block
+        bool isFirstSpawn = !BossAlreadyKilledByNetId(npc.netID);
+        if (!isFirstSpawn)
         {
             return;
         }
         
         var playersNotOnline = PlayersNotOnline();
-        // All the players needed are online, so we return here
-        if (playersNotOnline.Count == 0)
-        {
-            if (_config.LogBossSpawns())
-            {
-                Log.LogToFile($"{npc.FullName} spawned for the first time!");
-            }
-            return;
-        }
+        bool shouldBlockSpawns = playersNotOnline.Any() && _config.Enabled();
 
-        // We don't want to actually block any spawning, so just return here
-        if (!_config.Enabled())
+        // If we're not going to block this spawn, log that the boss is spawning for the first time, then don't block
+        if (!shouldBlockSpawns)
         {
+            Log.LogToFile($"{npc.FullName} spawned for the first time!");
             return;
         }
 
