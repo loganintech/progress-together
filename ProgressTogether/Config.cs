@@ -5,18 +5,16 @@ namespace ProgressTogether;
 
 public class Config
 {
-    [JsonIgnore]
-    public static string ConfigPath
-    {
-        get { return Path.Combine(TShock.SavePath, "progress-together.json"); }
-    }
+    [JsonIgnore] private static string ConfigPath => Path.Combine(TShock.SavePath, "progress-together.json");
 
-    [JsonProperty("addOnLogin")] private bool _addOnLogin;
-    [JsonProperty("logBossSpawns")] private bool _logBossSpawns;
+    [JsonProperty("addOnLogin")] public bool AddOnLogin { get; }
+    [JsonProperty("logBossSpawns")] public bool LogBossSpawns { get; }
     [JsonProperty("enabled")] private bool _enabled = true;
     [JsonProperty("entries")] private List<ProgressTogetherEntry> _entries = new();
+    [JsonProperty("sendMissedBossesOnJoin")] public bool SendMissedBossesOnJoin { get; }
+    [JsonProperty("missedBosses")] private Dictionary<ProgressTogetherEntry, List<BossEntry>> _missedBosses = new();
 
-    [JsonIgnore] private static readonly JsonSerializerSettings serializeOpts = new JsonSerializerSettings
+    [JsonIgnore] private static readonly JsonSerializerSettings SerializeOpts = new JsonSerializerSettings
     {
         NullValueHandling = NullValueHandling.Ignore,
         DefaultValueHandling = DefaultValueHandling.Include,
@@ -27,19 +25,11 @@ public class Config
     {
         return _enabled;
     }
+
     public void Enabled(bool enable)
     {
         _enabled = enable;
         Write();
-    }
-
-    public bool AddOnLogin()
-    {
-        return _addOnLogin;
-    }
-    public bool LogBossSpawns()
-    {
-        return _logBossSpawns;
     }
 
     public List<ProgressTogetherEntry> Entries()
@@ -47,11 +37,11 @@ public class Config
         return _entries;
     }
 
-    public bool Matches(TSPlayer player)
+    public bool PlayerInRequiredList(TSPlayer player)
     {
         foreach (var entry in _entries)
         {
-            if (entry.Matches(player))
+            if (entry == player)
             {
                 return true;
             }
@@ -59,20 +49,54 @@ public class Config
 
         return false;
     }
-    
+
     public void Add(ProgressTogetherEntry entry)
     {
         _entries.Add(entry);
         Write();
     }
 
+    public void AddMissed(ProgressTogetherEntry entry, BossEntry boss)
+    {
+        // If the player hasn't missed anything yet, don't include anything
+        if (!_missedBosses.ContainsKey(entry))
+        {
+            _missedBosses.Add(entry, new List<BossEntry> { boss });
+            Write();
+            return;
+        }
+
+        // If the player already has that boss marked as missed, don't add it again
+        // This shouldn't happen if we only add a boss on first spawn but let's cover ourselves anyways
+        if (_missedBosses[entry].Contains(boss))
+        {
+            return;
+        }
+        
+        _missedBosses[entry].Add(boss);
+        Write();
+    }
+
+    public List<BossEntry>? GetMissedForEntry(ProgressTogetherEntry entry)
+    {
+        _missedBosses.TryGetValue(entry, out List<BossEntry>? boss);
+        return boss;
+    }
+
+    public void ClearMissedForEntry(ProgressTogetherEntry entry)
+    {
+        _missedBosses.Remove(entry);
+        Write();
+    }
+
     public int RemoveAllMatches(string name)
     {
-        var matches = _entries.RemoveAll(val => val.name == name);
+        var matches = _entries.RemoveAll(val => val.Name == name);
         if (matches > 0)
         {
             Write();
         }
+
         return matches;
     }
 
@@ -92,7 +116,7 @@ public class Config
         Config? configData;
         try
         {
-            configData = JsonConvert.DeserializeObject<Config>(fileContent, serializeOpts);
+            configData = JsonConvert.DeserializeObject<Config>(fileContent, SerializeOpts);
         }
         catch (Exception)
         {
@@ -104,15 +128,48 @@ public class Config
 
     public void Write()
     {
-        var jsonConfig = JsonConvert.SerializeObject(this, serializeOpts);
+        var jsonConfig = JsonConvert.SerializeObject(this, SerializeOpts);
         File.WriteAllText(ConfigPath, jsonConfig);
+    }
+}
+
+public class BossEntry
+{
+    [JsonProperty("name")] public string Name { get; set; }
+    [JsonProperty("netId")] public int NetId { get; set; }
+
+    public BossEntry()
+    {
+        Name = "";
+        NetId = 0;
+    }
+
+    public BossEntry(string name, int netId)
+    {
+        this.Name = name;
+        this.NetId = netId;
+    }
+
+    public static bool operator ==(BossEntry a, BossEntry b)
+    {
+        return a.NetId == b.NetId;
+    }
+
+    public static bool operator !=(BossEntry a, BossEntry b)
+    {
+        return a.NetId != b.NetId;
+    }
+
+    public override string ToString()
+    {
+        return $"ProgressTogetherEntry(name={Name}, netId={NetId})";
     }
 }
 
 public class ProgressTogetherEntry
 {
-    [JsonProperty("name")] public string? name { get; set; }
-    [JsonProperty("uuid")] public string? uuid { get; set; }
+    [JsonProperty("name")] public string? Name { get; set; }
+    [JsonProperty("uuid")] public string? Uuid { get; set; }
 
     public ProgressTogetherEntry()
     {
@@ -120,8 +177,8 @@ public class ProgressTogetherEntry
 
     public ProgressTogetherEntry(string name, string uuid)
     {
-        this.name = name;
-        this.uuid = uuid;
+        this.Name = name;
+        this.Uuid = uuid;
     }
 
     public static ProgressTogetherEntry? FromActivePlayerName(string name)
@@ -133,8 +190,8 @@ public class ProgressTogetherEntry
             {
                 entry = new ProgressTogetherEntry()
                 {
-                    name = player.Name,
-                    uuid = player.UUID,
+                    Name = player.Name,
+                    Uuid = player.UUID,
                 };
                 break;
             }
@@ -143,30 +200,40 @@ public class ProgressTogetherEntry
         return entry;
     }
 
-    public bool Matches(TSPlayer player)
+    public static bool operator ==(ProgressTogetherEntry a, ProgressTogetherEntry b)
     {
-        var matches = this.name == player.Name;
-        if (this.uuid != null)
+        var matches = a.Name == b.Name;
+        if (a.Uuid != null)
         {
-            matches = matches && this.uuid == player.UUID;
+            matches = matches && a.Uuid == b.Uuid;
         }
 
         return matches;
     }
 
-    public bool Matches(ProgressTogetherEntry entry)
+    public static bool operator !=(ProgressTogetherEntry a, ProgressTogetherEntry b)
     {
-        var matches = this.name == entry.name;
-        if (this.uuid != null)
+        return !(a == b);
+    }
+
+    public static bool operator ==(ProgressTogetherEntry a, TSPlayer b)
+    {
+        var matches = a.Name == b.Name;
+        if (a.Uuid != null)
         {
-            matches = matches && this.uuid == entry.uuid;
+            matches = matches && a.Uuid == b.UUID;
         }
 
         return matches;
+    }
+
+    public static bool operator !=(ProgressTogetherEntry a, TSPlayer b)
+    {
+        return !(a == b);
     }
 
     public override string ToString()
     {
-        return $"ProgressTogetherEntry(name={name}, uuid={uuid})";
+        return $"ProgressTogetherEntry(name={Name}, uuid={Uuid})";
     }
 }
