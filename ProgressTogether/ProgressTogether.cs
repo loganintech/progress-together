@@ -1,7 +1,7 @@
 ﻿using Microsoft.Xna.Framework;
-using TerrariaApi.Server;
 using Terraria;
 using Terraria.ID;
+using TerrariaApi.Server;
 using TShockAPI;
 
 namespace ProgressTogether;
@@ -9,51 +9,107 @@ namespace ProgressTogether;
 [ApiVersion(2, 1)]
 public class ProgressTogether : TerrariaPlugin
 {
+    private Config _config;
+
+    public ProgressTogether(Main game) : base(game)
+    {
+        _config = new Config();
+    }
+
     public override string Author => "loganintech";
 
     public override string Description =>
         "Blocks bosses that haven't been spawned yet until enough of your friends are online!";
 
     public override string Name => Log.Name;
-    public override Version Version => new Version(0, 0, 2, 0);
+    public override Version Version => new(0, 0, 3, 0);
 
-    private Config _config;
-    
     public override void Initialize()
     {
         ServerApi.Hooks.NpcSpawn.Register(this, OnNpcSpawn);
         ServerApi.Hooks.ServerJoin.Register(this, OnServerJoin);
         Commands.ChatCommands.Add(new Command(Permissions.spawnboss, CommandHandler, "progress"));
         var config = Config.Load();
-        if (config == null)
+        if (config is null)
         {
             config = new Config();
             config.Write();
         }
+
         _config = config;
     }
 
     private void OnServerJoin(JoinEventArgs args)
     {
-        if (!_config.AddOnLogin())
+        AddOnJoin(args);
+        SendMissedBossesOnJoin(args);
+    }
+
+    private void AddOnJoin(JoinEventArgs args)
+    {
+        if (!_config.AddOnLogin)
         {
             return;
         }
-        
+
         var player = TShock.Players[args.Who];
-        if (player == null)
+        if (player is null)
         {
             return;
         }
 
         // If that player is already in the matches list, don't add them again.
-        if (_config.Matches(player))
+        if (_config.PlayerInRequiredList(player))
         {
             return;
         }
-        
+
         // Add only based on name, otherwise the same player connecting on two different devices would prevent progression
         _config.Add(new ProgressTogetherEntry(player.Name, ""));
+    }
+
+    private void SendMissedBossesOnJoin(JoinEventArgs args)
+    {
+        if (!_config.SendMissedBossesOnJoin)
+        {
+            return;
+        }
+
+        var player = TShock.Players[args.Who];
+        var entry = new ProgressTogetherEntry(player.Name, "");
+        var missed = _config.GetMissedForEntry(entry);
+        if (missed is null)
+        {
+            return;
+        }
+
+        if (missed.Count == 0)
+        {
+            _config.ClearMissedForEntry(entry);
+            return;
+        }
+
+        player.SendInfoMessage($"While you were away, {CombineBossNames(missed.ConvertAll(x => x.Name))}");
+        _config.ClearMissedForEntry(entry);
+    }
+
+    static string CombineBossNames(List<string> strings)
+    {
+        var count = strings.Count;
+        switch (count)
+        {
+            case 0:
+                return "nothing spawned. This message is probably a bug to send to loganintech";
+            case 1:
+                return strings[0] + " spawned.";
+            case 2:
+                return $"{strings[0]} and {strings[1]} spawned.";
+            default:
+            {
+                string combined = string.Join(", ", strings.GetRange(0, count - 1));
+                return $"{combined}, and {strings[count - 1]} all spawned.";
+            }
+        }
     }
 
     private void CommandHandler(CommandArgs args)
@@ -61,7 +117,8 @@ public class ProgressTogether : TerrariaPlugin
         switch (args.Parameters.Count)
         {
             case 0 or > 2:
-                args.Player.SendErrorMessage("Usage: /progress <add|remove|status|list|enable|disable|reload> [player]");
+                args.Player.SendErrorMessage(
+                    "Usage: /progress <add|remove|status|list|enable|disable|reload> [player]");
                 return;
             case 1:
                 HandleListEnableDisable(args);
@@ -109,11 +166,13 @@ public class ProgressTogether : TerrariaPlugin
                     args.Player.SendSuccessMessage($"No players are required for progress.");
                     return;
                 }
-                args.Player.SendSuccessMessage($"The following players are required for progression: {_config.StringifyEntries()}");
+
+                args.Player.SendSuccessMessage(
+                    $"The following players are required for progression: {_config.StringifyEntries()}");
                 return;
             case "reload":
                 var config = Config.Load();
-                if (config == null)
+                if (config is null)
                 {
                     args.Player.SendErrorMessage("Failed to reload config.");
                     return;
@@ -131,7 +190,7 @@ public class ProgressTogether : TerrariaPlugin
         {
             case "add":
                 var entry = ProgressTogetherEntry.FromActivePlayerName(args.Parameters[1]);
-                if (entry == null)
+                if (entry is null)
                 {
                     args.Player.SendErrorMessage("Player not found.");
                     return;
@@ -139,7 +198,7 @@ public class ProgressTogether : TerrariaPlugin
 
                 args.Player.SendSuccessMessage("Player was added to the progression requirements.");
                 _config.Add(entry);
-       
+
                 return;
             case "remove":
                 var removed = _config.RemoveAllMatches(args.Parameters[1]);
@@ -148,8 +207,9 @@ public class ProgressTogether : TerrariaPlugin
                     args.Player.SendErrorMessage("Player not found.");
                     return;
                 }
+
                 args.Player.SendSuccessMessage("Player was removed from progression requirements.");
-       
+
                 return;
         }
     }
@@ -163,11 +223,6 @@ public class ProgressTogether : TerrariaPlugin
         }
 
         base.Dispose(disposing);
-    }
-
-    public ProgressTogether(Main game) : base(game)
-    {
-        _config = new Config();
     }
 
     private static bool BossAlreadyKilledByNetId(int id)
@@ -251,13 +306,13 @@ public class ProgressTogether : TerrariaPlugin
         return false;
     }
 
-    private List<string> PlayersNotOnline()
+    private List<ProgressTogetherEntry> PlayersNotOnline()
     {
         var onlinePlayersSet = new List<ProgressTogetherEntry>();
         for (int i = 0; i < TShock.Players.Length; i++)
         {
             var player = TShock.Players[i];
-            if (player == null)
+            if (player is null)
             {
                 continue;
             }
@@ -265,13 +320,13 @@ public class ProgressTogether : TerrariaPlugin
             onlinePlayersSet.Add(new ProgressTogetherEntry(player.Name, player.UUID));
         }
 
-        var playersNotOnlineNames = new List<string>();
+        var playersNotOnlineNames = new List<ProgressTogetherEntry>();
         foreach (var entry in _config.Entries())
         {
             var foundMatch = false;
             foreach (var onlinePlayer in onlinePlayersSet)
             {
-                if (entry.Matches(onlinePlayer))
+                if (entry == onlinePlayer)
                 {
                     foundMatch = true;
                     break;
@@ -280,7 +335,7 @@ public class ProgressTogether : TerrariaPlugin
 
             if (!foundMatch)
             {
-                playersNotOnlineNames.Add(entry.name ?? "Unknown");
+                playersNotOnlineNames.Add(entry);
             }
         }
 
@@ -302,29 +357,39 @@ public class ProgressTogether : TerrariaPlugin
         {
             return;
         }
-        
+
         var playersNotOnline = PlayersNotOnline();
+        // Only block spawns if there are any players not online and the plugin is enabled
         bool shouldBlockSpawns = playersNotOnline.Any() && _config.Enabled();
 
         // If we're not going to block this spawn, log that the boss is spawning for the first time, then don't block
         if (!shouldBlockSpawns)
         {
-            if (_config.LogBossSpawns())
+            if (_config.LogBossSpawns)
             {
                 Log.LogToFile($"{npc.FullName} spawned for the first time!");
             }
+
+            if (_config.SendMissedBossesOnJoin)
+            {
+                foreach (var entry in playersNotOnline)
+                {
+                    _config.AddMissed(entry, new BossEntry(npc.FullName, npc.netID));
+                }
+            }
+
             return;
         }
 
         // We want to block spawning, so we set the npc to inactive and broadcast a message
-        var playersNotOnlineString = String.Join(", ", playersNotOnline);
+        var playersNotOnlineString = String.Join(", ", playersNotOnline.ConvertAll(p => p.Name));
         var adjective = playersNotOnline.Count > 1 ? "are" : "is";
         TShock.Utils.Broadcast(
             $"Spawning {npc.FullName} is blocked because {playersNotOnlineString} {adjective} not online", Color.Red);
         args.Handled = true;
         npc.active = false;
 
-        if (_config.LogBossSpawns())
+        if (_config.LogBossSpawns)
         {
             Log.LogToFile($"Spawning {npc.FullName} was blocked.");
         }
