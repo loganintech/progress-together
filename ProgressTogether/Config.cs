@@ -1,45 +1,47 @@
 ﻿using Newtonsoft.Json;
 using TShockAPI;
+using TShockAPI.Configuration;
 
 namespace ProgressTogether;
 
-public class Config
+public class ProgressTogetherConfig : ConfigFile<Config>
 {
-    [JsonIgnore] private static string ConfigPath => Path.Combine(TShock.SavePath, "progress-together.json");
-
-    [JsonProperty("addOnLogin")] public bool AddOnLogin { get; }
-    [JsonProperty("logBossSpawns")] public bool LogBossSpawns { get; }
-    [JsonProperty("enabled")] private bool _enabled = true;
-    [JsonProperty("entries")] private List<ProgressTogetherEntry> _entries = new();
-    [JsonProperty("sendMissedBossesOnJoin")] public bool SendMissedBossesOnJoin { get; }
-    [JsonProperty("missedBosses")] private Dictionary<ProgressTogetherEntry, List<BossEntry>> _missedBosses = new();
-
-    [JsonIgnore] private static readonly JsonSerializerSettings SerializeOpts = new JsonSerializerSettings
+    public ProgressTogetherConfig ReadFile()
     {
-        NullValueHandling = NullValueHandling.Ignore,
-        DefaultValueHandling = DefaultValueHandling.Include,
-        Formatting = Formatting.Indented,
-    };
+        if (!File.Exists(Config.ConfigPath))
+        {
+            Write(Config.ConfigPath);
+        }
+
+        Read(Config.ConfigPath, out bool incompleteSettings);
+        if (incompleteSettings)
+        {
+            // File was changed out of the server, this seems ok
+        }
+
+        return this;
+    }
 
     public bool Enabled()
     {
-        return _enabled;
+        return this.Settings.Enabled;
     }
 
     public void Enabled(bool enable)
     {
-        _enabled = enable;
-        Write();
+        this.Settings.Enabled = enable;
+        Write(Config.ConfigPath);
     }
+
 
     public List<ProgressTogetherEntry> Entries()
     {
-        return _entries;
+        return this.Settings.Entries;
     }
 
     public bool PlayerInRequiredList(TSPlayer player)
     {
-        foreach (var entry in _entries)
+        foreach (var entry in this.Settings.Entries)
         {
             if (entry == player)
             {
@@ -52,49 +54,49 @@ public class Config
 
     public void Add(ProgressTogetherEntry entry)
     {
-        _entries.Add(entry);
-        Write();
+        this.Settings.Entries.Add(entry);
+        Write(Config.ConfigPath);
     }
 
     public void AddMissed(ProgressTogetherEntry entry, BossEntry boss)
     {
         // If the player hasn't missed anything yet, don't include anything
-        if (!_missedBosses.ContainsKey(entry))
+        if (!this.Settings.MissedBosses.ContainsKey(entry))
         {
-            _missedBosses.Add(entry, new List<BossEntry> { boss });
-            Write();
+            this.Settings.MissedBosses.Add(entry, new List<BossEntry> { boss });
+            Write(Config.ConfigPath);
             return;
         }
 
         // If the player already has that boss marked as missed, don't add it again
         // This shouldn't happen if we only add a boss on first spawn but let's cover ourselves anyways
-        if (_missedBosses[entry].Contains(boss))
+        if (this.Settings.MissedBosses[entry].Contains(boss))
         {
             return;
         }
-        
-        _missedBosses[entry].Add(boss);
-        Write();
+
+        this.Settings.MissedBosses[entry].Add(boss);
+        Write(Config.ConfigPath);
     }
 
     public List<BossEntry>? GetMissedForEntry(ProgressTogetherEntry entry)
     {
-        _missedBosses.TryGetValue(entry, out List<BossEntry>? boss);
+        this.Settings.MissedBosses.TryGetValue(entry, out List<BossEntry>? boss);
         return boss;
     }
 
     public void ClearMissedForEntry(ProgressTogetherEntry entry)
     {
-        _missedBosses.Remove(entry);
-        Write();
+        this.Settings.MissedBosses.Remove(entry);
+        Write(Config.ConfigPath);
     }
 
     public int RemoveAllMatches(string name)
     {
-        var matches = _entries.RemoveAll(val => val.Name == name);
+        var matches = this.Settings.Entries.RemoveAll(val => val.Name == name);
         if (matches > 0)
         {
-            Write();
+            Write(Config.ConfigPath);
         }
 
         return matches;
@@ -102,35 +104,23 @@ public class Config
 
     public string StringifyEntries()
     {
-        return String.Join("\n", this._entries.Select(entry => entry.ToString()));
+        return String.Join("\n", this.Settings.Entries.Select(entry => entry.ToString()));
     }
+}
 
-    public static Config? Load()
-    {
-        if (!File.Exists(ConfigPath))
-        {
-            return new Config();
-        }
+public class Config
+{
+    public static string ConfigPath => Path.Combine(TShock.SavePath, "progress-together.json");
 
-        string fileContent = File.ReadAllText(ConfigPath);
-        Config? configData;
-        try
-        {
-            configData = JsonConvert.DeserializeObject<Config>(fileContent, SerializeOpts);
-        }
-        catch (Exception)
-        {
-            return null;
-        }
+    [JsonProperty("addOnLogin")] public bool AddOnLogin;
+    [JsonProperty("logBossSpawns")] public bool LogBossSpawns;
+    [JsonProperty("enabled")] public bool Enabled;
 
-        return configData;
-    }
+    [JsonProperty("sendMissedBossesOnJoin")]
+    public bool SendMissedBossesOnJoin;
 
-    public void Write()
-    {
-        var jsonConfig = JsonConvert.SerializeObject(this, SerializeOpts);
-        File.WriteAllText(ConfigPath, jsonConfig);
-    }
+    [JsonProperty("missedBosses")] public Dictionary<ProgressTogetherEntry, List<BossEntry>> MissedBosses;
+    [JsonProperty("entries")] public List<ProgressTogetherEntry> Entries = new();
 }
 
 public class BossEntry

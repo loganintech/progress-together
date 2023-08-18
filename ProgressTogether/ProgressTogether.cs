@@ -9,33 +9,25 @@ namespace ProgressTogether;
 [ApiVersion(2, 1)]
 public class ProgressTogether : TerrariaPlugin
 {
-    private Config _config;
-
-    public ProgressTogether(Main game) : base(game)
-    {
-        _config = new Config();
-    }
-
     public override string Author => "loganintech";
 
     public override string Description =>
         "Blocks bosses that haven't been spawned yet until enough of your friends are online!";
 
     public override string Name => Log.Name;
-    public override Version Version => new(0, 0, 3, 0);
+    public override Version Version => new(0, 0, 4, 0);
 
+
+    private ProgressTogetherConfig _config;
+    
     public override void Initialize()
     {
         ServerApi.Hooks.NpcSpawn.Register(this, OnNpcSpawn);
         ServerApi.Hooks.ServerJoin.Register(this, OnServerJoin);
         Commands.ChatCommands.Add(new Command(Permissions.spawnboss, CommandHandler, "progress"));
-        var config = Config.Load();
-        if (config is null)
-        {
-            config = new Config();
-            config.Write();
-        }
 
+        var config = new ProgressTogetherConfig();
+        _config = config.ReadFile();
         _config = config;
     }
 
@@ -47,7 +39,7 @@ public class ProgressTogether : TerrariaPlugin
 
     private void AddOnJoin(JoinEventArgs args)
     {
-        if (!_config.AddOnLogin)
+        if (!_config.Settings.AddOnLogin)
         {
             return;
         }
@@ -70,7 +62,7 @@ public class ProgressTogether : TerrariaPlugin
 
     private void SendMissedBossesOnJoin(JoinEventArgs args)
     {
-        if (!_config.SendMissedBossesOnJoin)
+        if (!_config.Settings.SendMissedBossesOnJoin)
         {
             return;
         }
@@ -171,14 +163,8 @@ public class ProgressTogether : TerrariaPlugin
                     $"The following players are required for progression: {_config.StringifyEntries()}");
                 return;
             case "reload":
-                var config = Config.Load();
-                if (config is null)
-                {
-                    args.Player.SendErrorMessage("Failed to reload config.");
-                    return;
-                }
-
-                _config = config;
+                var config = new ProgressTogetherConfig();
+                _config = config.ReadFile();
                 args.Player.SendSuccessMessage("Config reloaded.");
                 return;
         }
@@ -209,7 +195,6 @@ public class ProgressTogether : TerrariaPlugin
                 }
 
                 args.Player.SendSuccessMessage("Player was removed from progression requirements.");
-
                 return;
         }
     }
@@ -223,6 +208,11 @@ public class ProgressTogether : TerrariaPlugin
         }
 
         base.Dispose(disposing);
+    }
+
+    public ProgressTogether(Main game) : base(game)
+    {
+        _config = new ProgressTogetherConfig();
     }
 
     private static bool BossAlreadyKilledByNetId(int id)
@@ -365,12 +355,12 @@ public class ProgressTogether : TerrariaPlugin
         // If we're not going to block this spawn, log that the boss is spawning for the first time, then don't block
         if (!shouldBlockSpawns)
         {
-            if (_config.LogBossSpawns)
+            if (_config.Settings.LogBossSpawns)
             {
                 Log.LogToFile($"{npc.FullName} spawned for the first time!");
             }
 
-            if (_config.SendMissedBossesOnJoin)
+            if (_config.Settings.SendMissedBossesOnJoin)
             {
                 foreach (var entry in playersNotOnline)
                 {
@@ -389,7 +379,7 @@ public class ProgressTogether : TerrariaPlugin
         args.Handled = true;
         npc.active = false;
 
-        if (_config.LogBossSpawns)
+        if (_config.Settings.LogBossSpawns)
         {
             Log.LogToFile($"Spawning {npc.FullName} was blocked.");
         }
