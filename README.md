@@ -22,15 +22,17 @@ The config of Progress Together is stored in a JSON file named `progress-togethe
 
 ```json5
 {
-  "enabled": true,
-  "logBossSpawns": true, 
-  "addOnLogin": false,
-  "entries": [
-    {
-      "name": "CharacterName",
-      "uuid": "UUID of Player (is always included when using /progress add)"
-    }
-  ]
+  "Settings": {
+    "enabled": true,
+    "logBossSpawns": true,
+    "addOnLogin": false,
+    "entries": [
+      {
+        "name": "CharacterName",
+        "uuid": "UUID of Player (is always included when using /progress add)"
+      }
+    ]
+  },
 }
 ```
 
