@@ -15,7 +15,7 @@ public class ProgressTogether : TerrariaPlugin
         "Blocks bosses that haven't been spawned yet until enough of your friends are online!";
 
     public override string Name => Log.Name;
-    public override Version Version => new(0, 0, 4, 1);
+    public override Version Version => new(0, 0, 5, 0);
 
 
     private ProgressTogetherConfig _config;
@@ -68,8 +68,33 @@ public class ProgressTogether : TerrariaPlugin
         }
 
         var player = TShock.Players[args.Who];
-        var entry = new ProgressTogetherEntry(player.Name, "");
-        var missed = _config.GetMissedForEntry(entry);
+
+        // Get the progress entry by player name
+        ProgressTogetherEntry? entry = _config.Entries().Find(entry => entry.Name == player.Name);
+        // If the entry is not found, don't send any missed bosses
+        if (entry is null)
+        {
+            return;
+        }
+
+        ProgressTogetherEntry joiningPlayerEntry = new ProgressTogetherEntry(player.Name, "");
+
+        // If the config entry has a UUID, we need to consider it to determine if we send the missed message to this player
+        if (entry.Uuid != null)
+        {
+            // Ensure the UUID matches, if it doesn't this joining player is an imposter
+            // This prevents impersonators from swallowing the missed bosses message from the "rightful" entry
+            if (entry.Uuid != player.UUID)
+            {
+                return;
+            }
+
+            // If the UUID matches, set the joiningPlayerEntry's UUID to the entry's UUID
+            joiningPlayerEntry.Uuid = entry.Uuid;
+        }
+
+        // Use the joiningPlayerEntry from here on out so we check the name and uuid properly in the map
+        var missed = _config.GetMissedForEntry(joiningPlayerEntry);
         if (missed is null)
         {
             return;
@@ -77,12 +102,12 @@ public class ProgressTogether : TerrariaPlugin
 
         if (missed.Count == 0)
         {
-            _config.ClearMissedForEntry(entry);
+            _config.ClearMissedForEntry(joiningPlayerEntry);
             return;
         }
 
-        player.SendInfoMessage($"While you were away, {CombineBossNames(missed.ConvertAll(x => x.Name))}");
-        _config.ClearMissedForEntry(entry);
+        player.SendErrorMessage($"[Progress-Together] While you were away, {CombineBossNames(missed.ConvertAll(x => x.Name))}");
+        _config.ClearMissedForEntry(joiningPlayerEntry);
     }
 
     static string CombineBossNames(List<string> strings)
@@ -167,6 +192,9 @@ public class ProgressTogether : TerrariaPlugin
                 _config = config.ReadFile();
                 args.Player.SendSuccessMessage("Config reloaded.");
                 return;
+            case "debug-reset":
+                ResetBosses();
+                break;
         }
     }
 
@@ -213,6 +241,37 @@ public class ProgressTogether : TerrariaPlugin
     public ProgressTogether(Main game) : base(game)
     {
         _config = new ProgressTogetherConfig();
+    }
+
+    private static void ResetBosses()
+    {
+        NPC.downedSlimeKing = false;
+        NPC.downedDeerclops = false;
+        NPC.downedBoss1 = false;
+        NPC.downedBoss2 = false;
+        NPC.downedQueenBee = false;
+        NPC.downedBoss3 = false;
+        NPC.downedQueenSlime = false;
+        NPC.downedMechBoss1 = false;
+        NPC.downedMechBoss2 = false;
+        NPC.downedMechBoss3 = false;
+        NPC.downedMoonlord = false;
+        NPC.downedPlantBoss = false;
+        NPC.downedGolemBoss = false;
+        NPC.downedFishron = false;
+        NPC.downedAncientCultist = false;
+        NPC.downedEmpressOfLight = false;
+    }
+
+    private bool BossIsUnchecked(BossEntry entry)
+    {
+        var uncheckedBosses = _config.UncheckedBosses();
+        if (uncheckedBosses is null)
+        {
+            return false;
+        }
+        return uncheckedBosses.Any(boss => boss.NetId == entry.NetId) ||
+               uncheckedBosses.Any(boss => boss.Name == entry.Name);
     }
 
     private static bool BossAlreadyKilledByNetId(int id)
@@ -341,16 +400,12 @@ public class ProgressTogether : TerrariaPlugin
             return;
         }
 
-        // If it's not the first time they've spawned, don't block
         bool isFirstSpawn = !BossAlreadyKilledByNetId(npc.netID);
-        if (!isFirstSpawn)
-        {
-            return;
-        }
-
+        bool bossIsUnchecked = BossIsUnchecked(new BossEntry(npc.FullName, npc.netID));
         var playersNotOnline = PlayersNotOnline();
         // Only block spawns if there are any players not online and the plugin is enabled
-        bool shouldBlockSpawns = playersNotOnline.Any() && _config.Enabled();
+        // Also only block if it's the first spawn of the boss, and the boss is not unchecked
+        bool shouldBlockSpawns = playersNotOnline.Any() && _config.Enabled() && isFirstSpawn && !bossIsUnchecked;
 
         // If we're not going to block this spawn, log that the boss is spawning for the first time, then don't block
         if (!shouldBlockSpawns)
