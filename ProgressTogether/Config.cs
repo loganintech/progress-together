@@ -27,6 +27,11 @@ public class ProgressTogetherConfig : ConfigFile<Config>
         return this.Settings.Enabled;
     }
 
+    public List<BossEntry>? UncheckedBosses()
+    {
+        return this.Settings.UncheckedBosses;
+    }
+
     public void Enabled(bool enable)
     {
         this.Settings.Enabled = enable;
@@ -60,34 +65,39 @@ public class ProgressTogetherConfig : ConfigFile<Config>
 
     public void AddMissed(ProgressTogetherEntry entry, BossEntry boss)
     {
+        this.Settings.MissedBosses ??= new Dictionary<String, List<BossEntry>>();
         // If the player hasn't missed anything yet, don't include anything
-        if (!this.Settings.MissedBosses.ContainsKey(entry))
+        if (!this.Settings.MissedBosses.ContainsKey(entry.MapKey()))
         {
-            this.Settings.MissedBosses.Add(entry, new List<BossEntry> { boss });
+            this.Settings.MissedBosses.Add(entry.MapKey(), new List<BossEntry> { boss });
             Write(Config.ConfigPath);
             return;
         }
 
         // If the player already has that boss marked as missed, don't add it again
         // This shouldn't happen if we only add a boss on first spawn but let's cover ourselves anyways
-        if (this.Settings.MissedBosses[entry].Contains(boss))
+        if (this.Settings.MissedBosses[entry.MapKey()].Contains(boss))
         {
             return;
         }
 
-        this.Settings.MissedBosses[entry].Add(boss);
+        this.Settings.MissedBosses[entry.MapKey()].Add(boss);
         Write(Config.ConfigPath);
     }
 
     public List<BossEntry>? GetMissedForEntry(ProgressTogetherEntry entry)
     {
-        this.Settings.MissedBosses.TryGetValue(entry, out List<BossEntry>? boss);
+        if (this.Settings.MissedBosses is null)
+        {
+            return null;
+        }
+        this.Settings.MissedBosses.TryGetValue(entry.MapKey(), out List<BossEntry>? boss);
         return boss;
     }
 
     public void ClearMissedForEntry(ProgressTogetherEntry entry)
     {
-        this.Settings.MissedBosses.Remove(entry);
+        this.Settings.MissedBosses.Remove(entry.MapKey());
         Write(Config.ConfigPath);
     }
 
@@ -119,12 +129,32 @@ public class Config
     [JsonProperty("sendMissedBossesOnJoin")]
     public bool SendMissedBossesOnJoin;
 
-    [JsonProperty("missedBosses")] public Dictionary<ProgressTogetherEntry, List<BossEntry>> MissedBosses;
+    [JsonProperty("missedBosses")] public Dictionary<String, List<BossEntry>>? MissedBosses = new();
+    [JsonProperty("uncheckedBosses")] public List<BossEntry>? UncheckedBosses = new();
     [JsonProperty("entries")] public List<ProgressTogetherEntry> Entries = new();
 }
 
 public class BossEntry
 {
+    protected bool Equals(BossEntry other)
+    {
+        return Name == other.Name && NetId == other.NetId;
+    }
+    public override int GetHashCode()
+    {
+        return HashCode.Combine(Name, NetId);
+    }
+
+
+    public override bool Equals(object? obj)
+    {
+        if (ReferenceEquals(null, obj)) return false;
+        if (ReferenceEquals(this, obj)) return true;
+        if (obj.GetType() != this.GetType()) return false;
+        return Equals((BossEntry)obj);
+    }
+
+
     [JsonProperty("name")] public string Name { get; set; }
     [JsonProperty("netId")] public int NetId { get; set; }
 
@@ -169,6 +199,20 @@ public class ProgressTogetherEntry
     {
         this.Name = name;
         this.Uuid = uuid;
+    }
+
+    public String MapKey()
+    {
+        if (this.Name is null || this.Name == "")
+        {
+            return this.Uuid ?? "";
+        }
+
+        if (this.Uuid is null || this.Uuid == "")
+        {
+            return this.Name ?? "";
+        }
+        return this.Name + ":" + this.Uuid;
     }
 
     public static ProgressTogetherEntry? FromActivePlayerName(string name)
